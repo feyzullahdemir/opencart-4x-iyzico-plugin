@@ -75,14 +75,16 @@
                                     {% if payment_iyzico_design == 'popup'  %}
                                         <option value="popup" selected="selected">Popup</option>
                                         <option value="responsive">Responsive</option>
+
                                     {% elseif payment_iyzico_design == 'responsive' %}
                                         <option value="popup">Popup</option>
                                         <option value="responsive" selected="selected">Responsive</option>
 
+                                  
                                     {% else %}
                                         <option value="popup">Popup</option>
                                         <option value="responsive">Responsive</option>
-
+                                        <option value="onepage">One Page - Embed Responsive</option>
 
                                     {% endif %}
                                 </select>
@@ -226,13 +228,15 @@
     }
     function getApiValid() {
         var e, n, t;
+<<<<<<< Updated upstream
+        return event.preventDefault(), e = document.getElementById("api_channel").value, n = document.getElementById("api_key").value, t = document.getElementById("secret_key").value, "live" == e ? l(n, t) : "sandbox" == e ? s(n, t) : (alert("Geçersiz istek."), !1)
+=======
         return event.preventDefault(), e = document.getElementById("api_channel").value, n = document.getElementById("api_key").value, t = document.getElementById("api_key").value, "live" == e ? l(n, t) : "sandbox" == e ? s(n, t) : (alert("Geçersiz istek."), !1)
+>>>>>>> Stashed changes
     }
-
     function l(e, n) {
         if ("sandbox-" == e.substring(0, 8) || "sandbox-" == n.substring(0, 8)) return alert("{{valid_live}}"), !1
     }
-
     function s(e, n) {
         if ("sandbox-" != e.substring(0, 8) || "sandbox-" != n.substring(0, 8)) return alert("{{valid_sandbox}}"), !1
     }
