@@ -14,11 +14,18 @@
 
         <div class="successPayment" style="padding-top: 20px;">
         {% if locale == 'tr'%}
-          <h1><center>Ödemeniz Alındı. </center></h1>
+        {% if credit_pending == '1'%}
+        <h2> Alışveriş Kredisi için başvurunuz alınmıştır. Başvurunuz, en kısa sürede sonuçlandırılacaktır.</h2>
+          {% else %}
+                <h1><center>Ödemeniz Alındı. </center></h1>
+          {% endif %}
         {% else %}
-          <h1><center>Your Payment Received. </center></h1>
+        {% if credit_pending == '1'%}
+        <h2> Your Shopping Loan application has been received. Your application will be finalized as soon as possible.</h2>
+          {% else %}
+                    <h1><center>Your Payment Received. </center></h1>
+          {% endif %}
         {% endif %}
-
           <div>
 
           </div>

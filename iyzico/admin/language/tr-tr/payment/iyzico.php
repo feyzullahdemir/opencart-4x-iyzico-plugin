@@ -62,7 +62,9 @@ $_['iyzico_webhook_url_key_error']  = "Webhook URL üretilemedi. Lütfen sıras�
 $_['pwi_status_error']              = "iyzico İle Öde modülü aktif değil!";
 $_['pwi_status_error_detail']       = "iyzico ile Öde modülünü kurmadan iyzico Ödeme Formu ayarlarına erişemezsiniz.";
 $_['dev_iyzipay_opencart_link']     = "https://dev.iyzipay.com/tr/acik-kaynak/opencart";
-$_['dev_iyzipay_detail']            = "Opencart 3.x - iyzico ile Öde modülünün kurulumunu tamamlayınız: ";
+$_['dev_iyzipay_detail']            = "Opencart 4.x - iyzico ile Öde modülünün kurulumunu tamamlayınız: ";
 $_['checkout_language_automatic']   = 'Otomatik';
 $_['checkout_language_turkish']     = 'Türkçe';
 $_['checkout_language_english']     = 'İngilizce';
+
+$_['text_info_label']     = '	&nbsp;Problem yaşıyorsanız iletişime geçiniz.<a href="mailto:entegrasyon@iyzico.com">	&nbsp;entegrasyon@iyzico.com</a>';

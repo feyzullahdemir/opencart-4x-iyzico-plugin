@@ -130,6 +130,17 @@ class iyzico extends \Opencart\System\Engine\Model {
         return $this->curlPost($overlay_script_object,$authorization_data,$url);
 
     }
+    
+    public function iyzicoPostWebhookUrlKey($authorization_data,$webhook_active_post) {
+
+       $url        = $this->config->get('payment_iyzico_api_url');
+       $url        = $url.'/payment/notification/update';
+
+       $webhook_active_post = json_encode($webhook_active_post);
+
+       return $this->curlPost($webhook_active_post,$authorization_data,$url);
+
+   }
 
     public function curlPost($json,$authorizationData,$url) {
 

@@ -1,10 +1,12 @@
 <?php
 
 namespace Opencart\Admin\Controller\Extension\iyzico\Payment;
-
+use stdClass;
 class iyzico extends \Opencart\System\Engine\Controller {
 	private $error = array();
 	private $iyzico;
+	private $module_version      = VERSION;
+	private $module_product_name = '1.0';
 
 
 	private $fields = array(
@@ -56,6 +58,10 @@ class iyzico extends \Opencart\System\Engine\Controller {
             'validateField' => 'blank',
             'name'          => 'payment_iyzico_order_status_id',
         ),
+				array(
+						'validateField' => 'blank',
+						'name'          => 'payment_iyzico_webhook_text',
+				),
         array(
             'validateField' => 'blank',
             'name'          => 'payment_iyzico_overlay_token',
@@ -66,12 +72,9 @@ class iyzico extends \Opencart\System\Engine\Controller {
         ),
         array(
             'validateField' => 'blank',
-            'name'          => 'payment_iyzico_overlay_status',
-        ),
-        array(
-            'validateField' => 'blank',
             'name'          => 'webhook_iyzico_webhook_url_key',
         )
+
     );
 
 
@@ -94,7 +97,11 @@ class iyzico extends \Opencart\System\Engine\Controller {
             $this->response->redirect($this->url->link('extension/iyzico/payment/iyzico', 'user_token=' . $this->session->data['user_token'] . '&type=payment', true));
         }
 
-        //$this->setIyziWebhookUrlKey();
+        $this->setIyziWebhookUrlKey();
+
+				$this->setIyziWebhookUrlActiveButton();
+
+				$this->setWebhookUpdate();
 
         foreach ($this->fields as $key => $field) {
 
@@ -140,12 +147,14 @@ class iyzico extends \Opencart\System\Engine\Controller {
         $data['column_left']    = $this->load->controller('common/column_left');
         $data['footer']         = $this->load->controller('common/footer');
         $data['locale']         = $this->language->get('code');
+				$data['iyzico_webhook_url_key'] = $this->config->get('webhook_iyzico_webhook_url_key');
+			  $data['iyzico_webhook_url']  = HTTP_CATALOG.'index.php?route=extension/iyzico/payment/iyzico|webhook&key=' .$this->config->get('webhook_iyzico_webhook_url_key');
+        $data['module_version'] = $this->module_product_name;
+				$data['iyzico_webhook_button'] = $this->config->get('payment_iyzico_webhook_active_button');
 
 
-        $data_pwi_load_check['header']         = $this->load->controller('common/header');
-        $data_pwi_load_check['column_left']    = $this->load->controller('common/column_left');
 
-		 $this->response->setOutput($this->load->view('extension/iyzico/payment/iyzico', $data));
+		    $this->response->setOutput($this->load->view('extension/iyzico/payment/iyzico', $data));
 
 
     }
@@ -198,8 +207,7 @@ class iyzico extends \Opencart\System\Engine\Controller {
 							 $data[$field['name']] = $this->config->get($field['name']);
 					 }
 			 }
-
-
+			 $this->setWebhookUpdate();
 
         $this->model_extension_iyzico_payment_iyzico->install();
         $this->model_setting_setting->editSetting('payment_iyzico', $data);
@@ -209,7 +217,7 @@ class iyzico extends \Opencart\System\Engine\Controller {
     {
         $this->load->model('setting/setting');
         $this->load->model('extension/iyzico/payment/iyzico');
-
+				$this->db->query("DELETE FROM " . DB_PREFIX . "setting WHERE store_id = '0' AND code = 'payment_iyzico_webhook'");
         $this->model_extension_iyzico_payment_iyzico->uninstall();
         $this->model_setting_setting->deleteSetting('payment_iyzico');
     }
@@ -267,11 +275,6 @@ class iyzico extends \Opencart\System\Engine\Controller {
 					 }
 
 
-					 if(!$request_modify['payment_iyzico_overlay_status']) {
-
-
-							 $request_modify['payment_iyzico_overlay_status'] = 'bottomLeft';
-					 }
 
 			 }
 
@@ -289,7 +292,23 @@ class iyzico extends \Opencart\System\Engine\Controller {
 			 return $request_modify;
 	 }
 
-	
+	 private function setIyziWebhookUrlKey()
+    {
+
+        $webhookUrl = $this->config->get('webhook_iyzico_webhook_url_key');
+
+        $uniqueUrlId = substr(base64_encode(time() . mt_rand()),15,6);
+
+        if (!$webhookUrl) {
+            $this->model_setting_setting->editSetting('webhook_iyzico',array(
+                "webhook_iyzico_webhook_url_key" => $uniqueUrlId
+            ));
+        }
+
+        return true;
+    }
+
+
 	 private function installStatus() {
 
 			 $counter = 0;
@@ -304,5 +323,51 @@ class iyzico extends \Opencart\System\Engine\Controller {
 
 			 return $counter;
 	 }
+
+	 private function setIyziWebhookUrlActiveButton()
+	{
+			$webhookActive = $this->config->get('payment_iyzico_webhook_active_button');
+			if(empty($webhookActive))
+			{
+				$this->db->query("INSERT INTO `" . DB_PREFIX . "setting` (`code`, `key`, `value`, `serialized`) VALUES ('payment_iyzico_webhook','payment_iyzico_webhook_active_button', '1' ,'0');");
+
+			}
+
+
+	}
+
+	private function setWebhookUpdate() {
+
+      $webhookActive = $this->config->get('payment_iyzico_webhook_active_button');
+      $api_key = $this->config->get('payment_iyzico_api_key');
+      $secret_key = $this->config->get('payment_iyzico_secret_key');
+
+      if(isset($api_key) && isset($secret_key))
+      {
+        if($webhookActive == 1)
+        {
+          $webhook_active_post = new stdClass();
+          $webhook_active_post->webhookUrl      = HTTP_CATALOG.'index.php?route=extension/payment/iyzico/webhook&key=' .$this->config->get('webhook_iyzico_webhook_url_key');
+
+          $webhook_active_pki        = $this->model_extension_iyzico_payment_iyzico->pkiStringGenerate($webhook_active_post);
+          $authorization_data        = $this->model_extension_iyzico_payment_iyzico->authorizationGenerate($api_key,$secret_key,$webhook_active_pki);
+          $requestResponseWebhook    = $this->model_extension_iyzico_payment_iyzico->iyzicoPostWebhookUrlKey($authorization_data,$webhook_active_post);
+
+
+          if($requestResponseWebhook->merchantNotificationUpdateStatus == 'UPDATED' || $requestResponseWebhook->merchantNotificationUpdateStatus == 'CREATED')
+          {
+            $this->model_setting_setting->editSetting('payment_iyzico_webhook',array(
+                "payment_iyzico_webhook_active_button" => 2 ));
+          }
+          else {
+            $this->model_setting_setting->editSetting('payment_iyzico_webhook',array(
+                "payment_iyzico_webhook_active_button" => 3 ));
+          }
+
+        }
+      }
+    }
+
+
 
 }

@@ -4,7 +4,7 @@ use stdClass;
 class iyzico extends  \Opencart\System\Engine\Controller {
 
     private $module_version      = VERSION;
-    private $module_product_name = '4X';
+    private $module_product_name = '1.0';
 
     private $paymentConversationId;
     private $webhookToken;
@@ -15,26 +15,7 @@ class iyzico extends  \Opencart\System\Engine\Controller {
     public function index() {
 
         $this->load->language('extension/iyzico/payment/iyzico');
-        $cookieControl = false;
 
-                if(isset($_COOKIE['PHPSESSID'])) {
-                    $sessionKey = "PHPSESSID";
-                    $sessionValue = $_COOKIE['PHPSESSID'];
-                    $cookieControl = true;
-                }
-
-                if(isset($_COOKIE['OCSESSID'])) {
-
-                    $sessionKey = "OCSESSID";
-                    $sessionValue = $_COOKIE['OCSESSID'];
-                    $cookieControl = true;
-                }
-
-                if($cookieControl) {
-                    $setCookie = $this->setcookieSameSite($sessionKey,$sessionValue, time() + 86400, "/", $_SERVER['SERVER_NAME'],true, true);
-                }
-
-        $this->load->language('extension/payment/iyzico');
         $data['form_class']         = $this->config->get('payment_iyzico_design');
         $data['form_type']          = $this->config->get('payment_iyzico_design');
         $data['config_theme']       = $this->config->get('config_theme');
@@ -104,7 +85,7 @@ class iyzico extends  \Opencart\System\Engine\Controller {
 
         $api_key                               = $this->config->get('payment_iyzico_api_key');
         $secret_key                            = $this->config->get('payment_iyzico_secret_key');
-        $payment_source                        = "OPENCART-".$this->module_version."|".$this->module_product_name."|".$this->config->get('payment_iyzico_design');
+        $payment_source                        = "OPENCART-4x-".$this->module_version."|".$this->module_product_name."|".$this->config->get('payment_iyzico_design');
 
         $user_create_date                      = $this->model_extension_iyzico_payment_iyzico->getUserCreateDate($user_id);
 
@@ -269,15 +250,52 @@ class iyzico extends  \Opencart\System\Engine\Controller {
             $request_response = $this->model_extension_iyzico_payment_iyzico->createFormInitializeDetailRequest($iyzico_json,$authorization_data);
 
 
-            if ($webhook == "webhook" && $request_response->status == 'failure'){
-                return $this->webhookHttpResponse("errorCode: ".$request_response->errorCode ." - " . $request_response->errorMessage, 404);
-            }
+            if ($webhook == "webhook" &&  $webhookIyziEventType != 'CREDIT_PAYMENT_AUTH' && $request_response->status == 'failure'){
+                  return $this->webhookHttpResponse("errorCode: ".$request_response->errorCode ." - " . $request_response->errorMessage, 404);
+              }
+
+
+              if($webhook == "webhook" )
+              {
+
+                $order_id = $request_response->basketId;
+                $order_info            = $this->model_checkout_order->getOrder($order_id);
+
+                if($webhookIyziEventType == 'CREDIT_PAYMENT_AUTH' && $request_response->paymentStatus == 'PENDING_CREDIT')
+                   {
+                     $orderMessage = 'Alışveriş kredisi başvurusu sürecindedir.';
+                     $this->model_checkout_order->addHistory($request_response->basketId, 1, $orderMessage);
+                     return $this->webhookHttpResponse("Order Exist - Alışveriş kredisi başvurusu sürecindedir.", 200);
+
+                   }
+                if($webhookIyziEventType == 'CREDIT_PAYMENT_AUTH' && $request_response->status == 'success')
+                   {
+                      $orderMessage = 'Alışveriş kredisi işlemi başarıyla tamamlandı.';
+                      $this->model_checkout_order->addHistory($request_response->basketId, 2 , $orderMessage);
+                      return $this->webhookHttpResponse("Order Exist - Alışveriş kredisi işlemi başarıyla tamamlandı.", 200);
+                     }
+                if($webhookIyziEventType =='CREDIT_PAYMENT_INIT' && $request_response->status == 'INIT_CREDIT')
+                   {
+                      $orderMessage = 'Alışveriş kredisi işlemi başlatıldı.';
+                      $this->model_checkout_order->addHistory($request_response->basketId, 1 , $orderMessage);
+                      return $this->webhookHttpResponse("Order Exist - Alışveriş kredisi işlemi başlatıldı.", 200);
+                      }
+
+                 if($webhookIyziEventType == 'CREDIT_PAYMENT_AUTH' && $request_response->status == 'FAILURE')
+                   {
+                      $orderMessage = 'Alışveriş kredisi işlemi başarısız sonuçlandı.';
+                      $this->model_checkout_order->addHistory($request_response->basketId, 7, $orderMessage);
+                      return $this->webhookHttpResponse("Order Exist - Alışveriş kredisi işlemi başarısız sonuçlandı.", 200);
+                   }
+
+              }
+
 
             if ($webhook == "webhook"){
                 $order_id = $request_response->basketId;
                 $order_info 	         = $this->model_checkout_order->getOrder($order_id);
 
-                if ($order_info & $order_info['order_status_id'] == '5'){
+                if (isset($order_info) & $order_info['order_status_id'] == '5'){
                     return $this->webhookHttpResponse("Order Exist - Sipariş zaten var.", 200);
 
                 }
@@ -291,12 +309,23 @@ class iyzico extends  \Opencart\System\Engine\Controller {
 
             $this->model_extension_iyzico_payment_iyzico->insertIyzicoOrder($iyzico_local_order);
 
+             $this->setWebhookText(0);
+
             if($request_response->paymentStatus == 'INIT_BANK_TRANSFER' && $request_response->status == 'success'){
                 $orderMessage = 'iyzico Banka Havale/EFT ödemesi bekleniyor.';
+                $this->setWebhookText(0);
                 $this->model_checkout_order->addHistory($iyzico_local_order->order_id, $this->config->get('payment_iyzico_order_status'), $orderMessage);
                 return $this->response->redirect($this->url->link('extension/iyzico/payment/iyzico|successpage'));
-
             }
+
+            if($webhook != 'webhook' && $request_response->paymentStatus == 'PENDING_CREDIT' && $request_response->status == 'success')
+          {
+            $orderMessage = 'Alışveriş kredisi işlemi başlatıldı.';
+            $this->setWebhookText(1);
+            $this->model_checkout_order->addHistory($iyzico_local_order->order_id, 1,$orderMessage);
+            return $this->response->redirect($this->url->link('extension/iyzico/payment/iyzico|successpage'));
+          }
+           $this->setWebhookText(0);
 
             if($request_response->paymentStatus != 'SUCCESS' || $request_response->status != 'success' || $order_id != $request_response->basketId ) {
 
@@ -332,7 +361,7 @@ class iyzico extends  \Opencart\System\Engine\Controller {
             if ($installment > 1) {
                 $installement_field_desc = $this->language->get('installement_field_desc');
                 $this->model_extension_iyzico_payment_iyzico->orderUpdateByInstallement($iyzico_local_order->order_id,$request_response->paidPrice);
-                //$this->model_checkout_order->addHistory($this->session->data['order_id'], $this->config->get('payment_iyzico_order_status'), $message,true);
+                //$this->model_checkout_order->addHistory($iyzico_local_order->order_id, $this->config->get('payment_iyzico_order_status'), $message,true);
 
                 $messageInstallement = $request_response->cardFamily . ' - ' . $request_response->installment .$installement_field_desc;
                 //$this->model_checkout_order->addHistory($iyzico_local_order->order_id, $this->config->get('payment_iyzico_order_status'), $messageInstallement);
@@ -515,6 +544,8 @@ class iyzico extends  \Opencart\System\Engine\Controller {
         }
 
         $data['locale'] = $locale;
+        $thankyouText = $this->config->get('payment_iyzico_webhook_text');
+        $data['credit_pending'] = $thankyouText;
 
         $data['continue'] = $this->url->link('account/order', '', true);
 
@@ -546,18 +577,18 @@ class iyzico extends  \Opencart\System\Engine\Controller {
     private function shippingInfo() {
 
 
-        if(isset($this->session->data['shipping_method']) && $this->session->data['shipping_method'] != 'flat.flat' && $this->session->data['shipping_method'] != 'flat.flat') {
+        if(isset($this->session->data['shipping_method']) && $this->session->data['shipping_method'] != 'flat.flat') {
 
             $shipping_info      = $this->session->data['shipping_method'];
 
         } else {
 
-            $shipping_info = null;
+            $shipping_info = false;
         }
 
 
 
-        if( $shipping_info != false) {
+        if($shipping_info != false) {
 
             if (isset($shipping_info['tax_class_id'])) {
 
@@ -628,6 +659,14 @@ class iyzico extends  \Opencart\System\Engine\Controller {
     }
 
 
+    public function setWebhookText($thankyouTextValue) {
+
+      $webhookText = $this->config->get('payment_iyzico_webhook_text');
+      $query = $this->db->query("UPDATE `" . DB_PREFIX . "setting` SET `value` = '".$thankyouTextValue."' , `serialized` = 0  WHERE `code` = 'payment_iyzico' AND `key` = 'payment_iyzico_webhook_text' AND `store_id` = '0'");
+      return $query;
+    }
+
+
 
     public function webhook(){
 
@@ -635,6 +674,7 @@ class iyzico extends  \Opencart\System\Engine\Controller {
 
             $post = file_get_contents("php://input");
             $params = json_decode($post, true);
+
 
             if (isset(getallheaders()['x-iyz-signature'])){
                 $this->iyziSignature = getallheaders()['x-iyz-signature'];
