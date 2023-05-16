@@ -130,7 +130,7 @@ class iyzico extends \Opencart\System\Engine\Model {
         return $this->curlPost($overlay_script_object,$authorization_data,$url);
 
     }
-    
+
     public function iyzicoPostWebhookUrlKey($authorization_data,$webhook_active_post) {
 
        $url        = $this->config->get('payment_iyzico_api_url');
@@ -153,7 +153,7 @@ class iyzico extends \Opencart\System\Engine\Model {
         }
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, 0);
-        curl_setopt($curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+        curl_setopt($curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_NONE);
         curl_setopt($curl, CURLOPT_TIMEOUT, 10);
 
         curl_setopt(
